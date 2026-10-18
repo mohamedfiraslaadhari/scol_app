@@ -8,13 +8,14 @@ from config import Config
 from extensions import db, migrate
 from models import User, Classe, Etudiant, Matiere, Absence
 from forms import UserForm, ClasseForm, EtudiantForm, MatiereForm, AbsenceForm
-
+from admin_views import init_admin
 app = Flask(__name__)
 app.config.from_object(Config)
 
 db.init_app(app)
 migrate.init_app(app, db)
 csrf = CSRFProtect(app)   # protège aussi les boutons "Supprimer" (POST)
+init_admin(app, csrf)  # interface /admin (Flask-Admin)
 app.app_context().push()  # contexte d'application hors requête HTTP (TD, Partie 1 - point 2)
 
 

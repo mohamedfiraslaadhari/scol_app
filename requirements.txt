@@ -6,3 +6,5 @@ psycopg2-binary
 Passlib
 email-validator
 python-dotenv
+Flask-Admin
+Flask-Babel

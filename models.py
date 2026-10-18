@@ -8,6 +8,9 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
 
+    def __str__(self):
+        return self.username
+
 
 class Classe(db.Model):
     __tablename__ = 'classe'
@@ -17,6 +20,9 @@ class Classe(db.Model):
 
     etudiants = db.relationship('Etudiant', back_populates='classe',
                                 cascade='all, delete-orphan', passive_deletes=True)
+
+    def __str__(self):
+        return f'{self.CodClass} - {self.NomClass}'
 
 
 class Etudiant(db.Model):
@@ -35,6 +41,9 @@ class Etudiant(db.Model):
     absences = db.relationship('Absence', back_populates='etudiant',
                                cascade='all, delete-orphan', passive_deletes=True)
 
+    def __str__(self):
+        return f'{self.NCE} - {self.Nom} {self.Prenom}'
+
 
 class Matiere(db.Model):
     __tablename__ = 'matiere'
@@ -44,6 +53,9 @@ class Matiere(db.Model):
 
     absences = db.relationship('Absence', back_populates='matiere',
                                cascade='all, delete-orphan', passive_deletes=True)
+
+    def __str__(self):
+        return f'{self.CodMat} - {self.IntMat}'
 
 
 class Absence(db.Model):
@@ -62,3 +74,6 @@ class Absence(db.Model):
 
     etudiant = db.relationship('Etudiant', back_populates='absences')
     matiere = db.relationship('Matiere', back_populates='absences')
+
+    def __str__(self):
+        return f'{self.NCE} / {self.CodMat} / {self.DateA}'

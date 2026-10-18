@@ -1,6 +1,6 @@
 # Gestion des absences scolaires (Flask + PostgreSQL)
 
-TD-TP **Gestion de données avec Flask** : application web de gestion des classes, des matières, des étudiants et de leurs absences.
+TD-TP **Gestion de données avec Flask** : application web de gestion des classes, des matières, des étudiants et de leurs absences, avec une interface d'administration **Flask-Admin** (TD2).
 
 Module : Développement web avec Python, cycle ingénieur en informatique (INGTA2-S1).
 
@@ -12,10 +12,11 @@ Module : Développement web avec Python, cycle ingénieur en informatique (INGTA
 - Ajouter un **utilisateur** avec mot de passe hashé (Passlib)
 - Formulaires **Flask-WTF** avec validation et protection CSRF
 - Migrations de base de données avec **Flask-Migrate**
+- **Interface d'administration Flask-Admin** (`/admin`) : gestion des utilisateurs, classes, étudiants, matières et absences (TD2)
 
 ## Technologies
 
-Python 3.12, Flask, Flask-SQLAlchemy, Flask-Migrate, Flask-WTF, PostgreSQL (psycopg2), Passlib, Jinja2.
+Python 3.12, Flask, Flask-SQLAlchemy, Flask-Migrate, Flask-WTF, **Flask-Admin**, **Flask-Babel**, PostgreSQL (psycopg2), Passlib, Jinja2.
 
 ## Schéma de la base de données
 
@@ -27,11 +28,14 @@ Absence  (#CodMat, #NCE, DateA, NHA)
 User     (id, username, email, password)
 ```
 
+Contraintes d'intégrité : les clés étrangères utilisent `ON UPDATE CASCADE` et `ON DELETE CASCADE`. Supprimer une classe supprime ses étudiants et leurs absences ; supprimer une matière supprime ses absences.
+
 ## Structure du projet
 
 ```
 scol_app/
 ├── app.py            # application et routes
+├── admin_views.py    # interface d'administration Flask-Admin (TD2)
 ├── config.py         # configuration (lit le fichier .env)
 ├── extensions.py     # db et migrate
 ├── models.py         # modèles SQLAlchemy
@@ -66,7 +70,7 @@ pip install -r requirements.txt
 
 4. Créer la base PostgreSQL `scol` (par exemple dans pgAdmin) :
 
-```sql
+```
 CREATE DATABASE scol;
 ```
 
@@ -90,19 +94,32 @@ flask db upgrade
 python app.py
 ```
 
-Puis ouvrir http://127.0.0.1:5000
+Puis ouvrir <http://127.0.0.1:5000>
 
 ## Pages principales
 
-| Adresse | Description |
-|---|---|
-| `/` | Liste des étudiants |
-| `/etudiant/add` | Ajouter un étudiant |
-| `/classes` | Gérer les classes |
-| `/matieres` | Gérer les matières |
-| `/absence/add` | Ajouter une absence |
-| `/absences/<NCE>` | Absences d'un étudiant |
-| `/user/add` | Ajouter un utilisateur |
+| Adresse           | Description                                   |
+| ----------------- | --------------------------------------------- |
+| `/`               | Liste des étudiants                           |
+| `/etudiant/add`   | Ajouter un étudiant                           |
+| `/classes`        | Gérer les classes                             |
+| `/matieres`       | Gérer les matières                            |
+| `/absence/add`    | Ajouter une absence                           |
+| `/absences/<NCE>` | Absences d'un étudiant                        |
+| `/user/add`       | Ajouter un utilisateur                        |
+| `/admin`          | Interface d'administration Flask-Admin (TD2)  |
+
+## TD2 : Interface d'administration (Flask-Admin)
+
+L'interface `/admin` propose cinq vues : **User, Classe, Etudiant, Matiere, Absence**.
+
+- **User** : formulaire avec validation (username de 4 à 20 caractères, email valide, mot de passe de 6 caractères minimum). Le mot de passe est haché avec Passlib et n'est jamais affiché dans la liste. En modification, un mot de passe laissé vide conserve l'ancien.
+- **Classe** : le nombre d'étudiants est calculé automatiquement.
+- **Etudiant** : la classe est choisie dans une liste déroulante, avec recherche et filtre par classe.
+- **Matiere** : recherche par code ou intitulé.
+- **Absence** : l'étudiant et la matière sont choisis dans des listes déroulantes.
+- **Contraintes d'intégrité** : suppression en cascade (classe → étudiants → absences).
+- **Flask-Babel** est initialisé pour la traduction de l'interface.
 
 ## Auteur
 
