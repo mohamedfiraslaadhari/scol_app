@@ -2,7 +2,9 @@
 {% block title %}Étudiants{% endblock %}
 {% block content %}
 <h1>Liste des étudiants</h1>
+{% if current_user.is_admin() %}
 <p><a href="{{ url_for('add_etudiant') }}">+ Ajouter un étudiant</a></p>
+{% endif %}
 
 {% if etudiants %}
 <table border="1" cellpadding="6" cellspacing="0">
@@ -32,6 +34,7 @@
             <td>{{ e.classe.NomClass }}</td>
             <td>
                 <a class="btn btn-abs" href="{{ url_for('absences_etudiant', nce=e.NCE) }}">Absences</a>
+                {% if current_user.is_admin() %}
                 <a class="btn btn-edit" href="{{ url_for('edit_etudiant', nce=e.NCE) }}" title="Modifier">
                     <i class="fa fa-pen"></i>
                 </a>
@@ -42,6 +45,7 @@
                         <i class="fa fa-trash"></i>
                     </button>
                 </form>
+                {% endif %}
             </td>
         </tr>
     {% endfor %}

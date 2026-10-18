@@ -114,3 +114,12 @@ def db_exists(model, pk):
     """Vrai si une ligne avec cette clé primaire existe déjà."""
     from extensions import db
     return db.session.get(model, pk) is not None
+
+
+class LoginForm(FlaskForm):
+    """Formulaire de connexion (TP Flask-Login)."""
+    username = StringField("Nom d'utilisateur", validators=[
+        DataRequired(message='Champ obligatoire')])
+    password = PasswordField('Mot de passe', validators=[
+        DataRequired(message='Champ obligatoire')])
+    submit = SubmitField('Se connecter')

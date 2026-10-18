@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Connexion{% endblock %}
+{% block content %}
+<h1>Connexion</h1>
+
+<form method="POST" novalidate>
+    {{ form.hidden_tag() }}
+    {% for field in [form.username, form.password] %}
+        <p>
+            {{ field.label }}<br>
+            {{ field() }}
+            {% for erreur in field.errors %}
+                <br><span class="danger">{{ erreur }}</span>
+            {% endfor %}
+        </p>
+    {% endfor %}
+    <p>{{ form.submit() }}</p>
+</form>
+
+<p>Pas encore de compte ? <a href="{{ url_for('add_user') }}">Inscription</a></p>
+{% endblock %}

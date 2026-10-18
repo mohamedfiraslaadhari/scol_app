@@ -128,7 +128,18 @@ L'interface `/admin` propose cinq vues : **User, Classe, Etudiant, Matiere, Abse
 - Page de **modification** `/etudiant/<NCE>/edit` : affiche la photo actuelle, la conserve si aucune nouvelle image n'est choisie, et supprime l'ancienne en cas de remplacement.
 - **Suppression** d'un étudiant (bouton avec confirmation, requête POST protégée par CSRF) : supprime aussi sa photo et gère `IntegrityError`.
 - Icônes **Font Awesome** pour les boutons Modifier et Supprimer.
-- Le dossier `static/image/` est ignoré par Git (photos = données personnelles).
+- - Le dossier `static/image/` est ignoré par Git (photos = données personnelles).
+## TP : Authentification et rôles (Flask-Login)
+
+- **Flask-Login** : `LoginManager`, `UserMixin`, `user_loader`, `login_user` / `logout_user`, `@login_required`.
+- Page de **connexion** `/login` (mot de passe vérifié avec Passlib) et **déconnexion** `/logout`.
+- **Inscription** `/user/add` : crée toujours un compte avec le rôle `user`.
+- **Rôles** (colonne `role` du modèle `User`) : `admin` et `user`.
+  - `user` : consulter les étudiants et leurs absences, ajouter une absence.
+  - `admin` : tout le reste (étudiants, classes, matières, suppressions) et l'interface `/admin`.
+- Le menu change selon l'utilisateur connecté (`current_user.is_authenticated`, `current_user.is_admin()`).
+- L'interface **Flask-Admin** est réservée aux administrateurs et propose des liens « Retour à l'application » et « Déconnexion ».
+- Le rôle d'un utilisateur se modifie dans `/admin` → User.
 ## Auteur
 
 Mohamed Firas Laâdhari

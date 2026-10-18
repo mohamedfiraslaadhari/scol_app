@@ -1,7 +1,12 @@
 import os
 from datetime import date
+from functools import wraps
+from urllib.parse import urlparse
 
-from flask import Flask, render_template, redirect, url_for, flash, abort
+from flask import (Flask, render_template, redirect, url_for, flash, abort,
+                   request)
+from flask_login import (LoginManager, login_user, logout_user, login_required,
+                         current_user)
 from flask_uploads import UploadSet, configure_uploads, UploadNotAllowed
 from flask_wtf.csrf import CSRFProtect
 from passlib.hash import pbkdf2_sha256
@@ -13,7 +18,7 @@ from config import Config
 from extensions import db, migrate
 from models import User, Classe, Etudiant, Matiere, Absence
 from forms import (UserForm, ClasseForm, EtudiantForm, EtudiantEditForm,
-                   MatiereForm, AbsenceForm, EXTENSIONS_IMAGES)
+                   MatiereForm, AbsenceForm, LoginForm, EXTENSIONS_IMAGES)
 from admin_views import init_admin
 
 app = Flask(__name__)
@@ -29,7 +34,43 @@ configure_uploads(app, photos)
 db.init_app(app)
 migrate.init_app(app, db)
 csrf = CSRFProtect(app)  # protège aussi les boutons "Supprimer" (POST)
-init_admin(app, csrf)  # interface /admin (Flask-Admin)
+
+# ---------- Sessions utilisateurs (TP : Flask-Login) ----------
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'            # page vers laquelle on redirige si non connecté
+login_manager.login_message = 'Veuillez vous connecter pour accéder à cette page.'
+login_manager.login_message_category = 'danger'
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    """Recharge l'utilisateur à partir de l'identifiant stocké dans la session."""
+    return db.session.get(User, int(user_id))
+
+
+def admin_required(vue):
+    """Réserve une route aux administrateurs (rôle 'admin')."""
+    @wraps(vue)
+    def wrapper(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return login_manager.unauthorized()
+        if not current_user.is_admin():
+            flash('Accès réservé aux administrateurs.', 'danger')
+            return redirect(url_for('index'))
+        return vue(*args, **kwargs)
+    return wrapper
+
+
+def adresse_sure(cible):
+    """Accepte uniquement une adresse interne (évite la redirection vers un autre site)."""
+    if not cible:
+        return False
+    analyse = urlparse(cible)
+    return (cible.startswith('/') and not cible.startswith('//')
+            and '\\' not in cible and not analyse.netloc and not analyse.scheme)
+
+
+init_admin(app, csrf)  # interface /admin (Flask-Admin), réservée aux administrateurs
 app.app_context().push()  # contexte d'application hors requête HTTP (TD, Partie 1 - point 2)
 
 
@@ -60,14 +101,45 @@ def fichier_envoye(champ):
     return isinstance(champ.data, FileStorage) and bool(champ.data.filename)
 
 
+# ================= CONNEXION / DÉCONNEXION =================
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(username=form.username.data.strip()).first()
+        try:
+            mot_de_passe_ok = bool(user) and pbkdf2_sha256.verify(form.password.data, user.password)
+        except ValueError:          # mot de passe stocké dans un format inconnu
+            mot_de_passe_ok = False
+        if mot_de_passe_ok:
+            login_user(user)        # Flask-Login mémorise l'utilisateur dans la session
+            flash(f'Bienvenue {user.username} ! Vous êtes connecté.', 'success')
+            cible = request.args.get('next')
+            return redirect(cible if adresse_sure(cible) else url_for('index'))
+        flash('Identifiants incorrects.', 'danger')
+    return render_template('login.html', form=form)
+
+
+@app.route('/logout', methods=['GET', 'POST'])   # GET autorisé pour le lien du menu /admin
+@login_required
+def logout():
+    logout_user()                   # supprime l'utilisateur de la session
+    flash('Vous avez été déconnecté.', 'success')
+    return redirect(url_for('login'))
+
+
 # ================= ÉTUDIANTS (page d'accueil) =================
 @app.route('/')
+@login_required
 def index():
     etudiants = Etudiant.query.order_by(Etudiant.Nom).all()
     return render_template('index.html', etudiants=etudiants)
 
 
 @app.route('/etudiant/add', methods=['GET', 'POST'])
+@admin_required
 def add_etudiant():
     classes = Classe.query.order_by(Classe.CodClass).all()
     if not classes:
@@ -102,6 +174,7 @@ def add_etudiant():
 
 
 @app.route('/etudiant/<nce>/edit', methods=['GET', 'POST'])
+@admin_required
 def edit_etudiant(nce):
     etudiant = db.get_or_404(Etudiant, nce)
     classes = Classe.query.order_by(Classe.CodClass).all()
@@ -132,12 +205,13 @@ def edit_etudiant(nce):
         db.session.commit()
         maj_effectif(ancienne_classe)
         maj_effectif(etudiant.CodClass)
-        flash('Informations de l\'étudiant mises à jour.', 'success')
+        flash("Informations de l'étudiant mises à jour.", 'success')
         return redirect(url_for('index'))
     return render_template('edit_etudiant.html', form=form, etudiant=etudiant)
 
 
 @app.route('/etudiant/<nce>/delete', methods=['POST'])
+@admin_required
 def delete_etudiant(nce):
     etudiant = db.get_or_404(Etudiant, nce)
     cod_class = etudiant.CodClass
@@ -155,8 +229,9 @@ def delete_etudiant(nce):
     return redirect(url_for('index'))
 
 
-# ================= CLASSES =================
+# ================= CLASSES (administrateur) =================
 @app.route('/classes', methods=['GET', 'POST'])
+@admin_required
 def list_classes():
     form = ClasseForm()
     if form.validate_on_submit():
@@ -171,6 +246,7 @@ def list_classes():
 
 
 @app.route('/classe/<cod>/delete', methods=['POST'])
+@admin_required
 def delete_classe(cod):
     classe = db.get_or_404(Classe, cod)
     db.session.delete(classe)  # ses étudiants et leurs absences sont supprimés aussi
@@ -179,8 +255,9 @@ def delete_classe(cod):
     return redirect(url_for('list_classes'))
 
 
-# ================= MATIÈRES =================
+# ================= MATIÈRES (administrateur) =================
 @app.route('/matieres', methods=['GET', 'POST'])
+@admin_required
 def list_matieres():
     form = MatiereForm()
     if form.validate_on_submit():
@@ -195,6 +272,7 @@ def list_matieres():
 
 
 @app.route('/matiere/<cod>/delete', methods=['POST'])
+@admin_required
 def delete_matiere(cod):
     matiere = db.get_or_404(Matiere, cod)
     db.session.delete(matiere)  # ses absences sont supprimées aussi
@@ -205,6 +283,7 @@ def delete_matiere(cod):
 
 # ================= ABSENCES =================
 @app.route('/absences/<nce>')
+@login_required
 def absences_etudiant(nce):
     etudiant = db.get_or_404(Etudiant, nce)
     absences = (Absence.query.filter_by(NCE=nce)
@@ -213,6 +292,7 @@ def absences_etudiant(nce):
 
 
 @app.route('/absence/add', methods=['GET', 'POST'])
+@login_required
 def add_absence():
     etudiants = Etudiant.query.order_by(Etudiant.Nom).all()
     matieres = Matiere.query.order_by(Matiere.IntMat).all()
@@ -237,6 +317,7 @@ def add_absence():
 
 
 @app.route('/absence/delete/<codmat>/<nce>/<jour>', methods=['POST'])
+@admin_required
 def delete_absence(codmat, nce, jour):
     absence = db.session.get(Absence, (codmat, nce, date.fromisoformat(jour)))
     if absence is None:
@@ -247,18 +328,19 @@ def delete_absence(codmat, nce, jour):
     return redirect(url_for('absences_etudiant', nce=nce))
 
 
-# ================= UTILISATEUR (TD Partie 1 - points 3 et 4) =================
+# ================= INSCRIPTION (ouverte à tous : rôle 'user') =================
 @app.route('/user/add', methods=['GET', 'POST'])
 def add_user():
     form = UserForm()
     if form.validate_on_submit():
         user = User(username=form.username.data,
                     email=form.email.data,
-                    password=pbkdf2_sha256.hash(form.password.data))  # mot de passe hashé
+                    password=pbkdf2_sha256.hash(form.password.data),  # mot de passe hashé
+                    role='user')                                     # jamais admin par inscription
         db.session.add(user)
         db.session.commit()
-        flash('Utilisateur ajouté avec succès.', 'success')
-        return redirect(url_for('index'))
+        flash('Compte créé avec succès. Vous pouvez vous connecter.', 'success')
+        return redirect(url_for('login'))
     return render_template('add_user.html', form=form)
 
 
