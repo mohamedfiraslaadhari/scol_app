@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Ajouter une absence</h2>
+<form method="POST" novalidate>
+    {{ form.hidden_tag() }}
+    {% for field in [form.NCE, form.CodMat, form.DateA, form.NHA] %}
+    <p>
+        {{ field.label }}<br>
+        {{ field() }}
+        {% for err in field.errors %}<br><span class="error">{{ err }}</span>{% endfor %}
+    </p>
+    {% endfor %}
+    {{ form.submit() }}
+</form>
+{% endblock %}

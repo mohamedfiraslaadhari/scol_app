@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Matières</h2>
+
+<form method="POST" novalidate>
+    {% include '_champs.html' %}
+</form>
+
+<table>
+    <tr><th>CodMat</th><th>IntMat</th><th>Description</th><th>Action</th></tr>
+    {% for m in matieres %}
+    <tr>
+        <td>{{ m.CodMat }}</td>
+        <td>{{ m.IntMat }}</td>
+        <td>{{ m.Description or '' }}</td>
+        <td>
+            <form method="POST" action="{{ url_for('delete_matiere', cod=m.CodMat) }}" style="display:inline"
+                  onsubmit="return confirm('Supprimer cette matiere et ses absences ?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit">Supprimer</button>
+            </form>
+        </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">Aucune matière</td></tr>
+    {% endfor %}
+</table>
+{% endblock %}

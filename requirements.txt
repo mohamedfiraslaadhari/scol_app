@@ -1,0 +1,8 @@
+Flask
+Flask-SQLAlchemy
+Flask-Migrate
+Flask-WTF
+psycopg2-binary
+Passlib
+email-validator
+python-dotenv

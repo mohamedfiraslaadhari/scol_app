@@ -1,0 +1,9 @@
+{{ form.hidden_tag() }}
+{% for field in form if field.type not in ['CSRFTokenField', 'SubmitField'] %}
+<p>
+    {{ field.label }}<br>
+    {{ field() }}
+    {% for err in field.errors %}<br><span class="error">{{ err }}</span>{% endfor %}
+</p>
+{% endfor %}
+{{ form.submit() }}

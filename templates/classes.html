@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Classes</h2>
+
+<form method="POST" novalidate>
+    {% include '_champs.html' %}
+</form>
+
+<table>
+    <tr><th>CodClass</th><th>NomClass</th><th>NbrEtud</th><th>Action</th></tr>
+    {% for c in classes %}
+    <tr>
+        <td>{{ c.CodClass }}</td>
+        <td>{{ c.NomClass }}</td>
+        <td>{{ c.NbrEtud }}</td>
+        <td>
+            <form method="POST" action="{{ url_for('delete_classe', cod=c.CodClass) }}" style="display:inline"
+                  onsubmit="return confirm('Supprimer cette classe, ses etudiants et leurs absences ?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit">Supprimer</button>
+            </form>
+        </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">Aucune classe</td></tr>
+    {% endfor %}
+</table>
+{% endblock %}
