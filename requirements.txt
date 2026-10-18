@@ -8,3 +8,4 @@ email-validator
 python-dotenv
 Flask-Admin
 Flask-Babel
+Flask-Reuploaded

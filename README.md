@@ -120,7 +120,15 @@ L'interface `/admin` propose cinq vues : **User, Classe, Etudiant, Matiere, Abse
 - **Absence** : l'étudiant et la matière sont choisis dans des listes déroulantes.
 - **Contraintes d'intégrité** : suppression en cascade (classe → étudiants → absences).
 - **Flask-Babel** est initialisé pour la traduction de l'interface.
+## TD3 : Téléchargement de fichiers (Flask-Uploads)
 
+- Champ **photo** ajouté au modèle `Etudiant` (migration Flask-Migrate).
+- Bibliothèque **Flask-Reuploaded** (compatible avec les Flask récents, même `import flask_uploads`).
+- Ajout d'un étudiant avec photo : types autorisés `jpg`, `jpeg`, `png`, `gif`, taille maximale 2 Mo. L'image est enregistrée dans `static/image/` sous le nom `<NCE>.<extension>`.
+- Page de **modification** `/etudiant/<NCE>/edit` : affiche la photo actuelle, la conserve si aucune nouvelle image n'est choisie, et supprime l'ancienne en cas de remplacement.
+- **Suppression** d'un étudiant (bouton avec confirmation, requête POST protégée par CSRF) : supprime aussi sa photo et gère `IntegrityError`.
+- Icônes **Font Awesome** pour les boutons Modifier et Supprimer.
+- Le dossier `static/image/` est ignoré par Git (photos = données personnelles).
 ## Auteur
 
 Mohamed Firas Laâdhari

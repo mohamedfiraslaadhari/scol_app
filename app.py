@@ -1,20 +1,34 @@
+import os
 from datetime import date
 
 from flask import Flask, render_template, redirect, url_for, flash, abort
+from flask_uploads import UploadSet, configure_uploads, UploadNotAllowed
 from flask_wtf.csrf import CSRFProtect
 from passlib.hash import pbkdf2_sha256
+from sqlalchemy.exc import IntegrityError
+from werkzeug.datastructures import FileStorage
+from werkzeug.utils import secure_filename
 
 from config import Config
 from extensions import db, migrate
 from models import User, Classe, Etudiant, Matiere, Absence
-from forms import UserForm, ClasseForm, EtudiantForm, MatiereForm, AbsenceForm
+from forms import (UserForm, ClasseForm, EtudiantForm, EtudiantEditForm,
+                   MatiereForm, AbsenceForm, EXTENSIONS_IMAGES)
 from admin_views import init_admin
+
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# ---------- Téléchargement des photos (TD3 : Flask-Uploads) ----------
+app.config['UPLOADED_PHOTOS_DEST'] = os.path.join(app.root_path, 'static', 'image')
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024   # taille maximale : 2 Mo
+os.makedirs(app.config['UPLOADED_PHOTOS_DEST'], exist_ok=True)
+photos = UploadSet('photos', tuple(EXTENSIONS_IMAGES))  # "photos" = nom de l'ensemble d'uploads
+configure_uploads(app, photos)
+
 db.init_app(app)
 migrate.init_app(app, db)
-csrf = CSRFProtect(app)   # protège aussi les boutons "Supprimer" (POST)
+csrf = CSRFProtect(app)  # protège aussi les boutons "Supprimer" (POST)
 init_admin(app, csrf)  # interface /admin (Flask-Admin)
 app.app_context().push()  # contexte d'application hors requête HTTP (TD, Partie 1 - point 2)
 
@@ -25,6 +39,25 @@ def maj_effectif(cod_class):
     if classe:
         classe.NbrEtud = Etudiant.query.filter_by(CodClass=cod_class).count()
         db.session.commit()
+
+
+def sauver_photo(fichier, nce):
+    """Enregistre l'image sous le nom <NCE>.<extension> et retourne le nom du fichier."""
+    base = secure_filename(nce) or 'etudiant'
+    return photos.save(fichier, name=f'{base}.')
+
+
+def supprimer_photo(nom_fichier):
+    """Supprime le fichier image du disque (s'il existe)."""
+    if nom_fichier:
+        chemin = os.path.join(app.config['UPLOADED_PHOTOS_DEST'], os.path.basename(nom_fichier))
+        if os.path.isfile(chemin):
+            os.remove(chemin)
+
+
+def fichier_envoye(champ):
+    """Vrai si l'utilisateur a réellement choisi un fichier dans le champ photo."""
+    return isinstance(champ.data, FileStorage) and bool(champ.data.filename)
 
 
 # ================= ÉTUDIANTS (page d'accueil) =================
@@ -45,12 +78,22 @@ def add_etudiant():
     form.CodClass.choices = [(c.CodClass, f'{c.CodClass} - {c.NomClass}') for c in classes]
 
     if form.validate_on_submit():
-        db.session.add(Etudiant(NCE=form.NCE.data.strip(),
+        nce = form.NCE.data.strip()
+        nom_photo = None
+        if fichier_envoye(form.photo):
+            try:
+                nom_photo = sauver_photo(form.photo.data, nce)
+            except UploadNotAllowed:
+                flash('Type de fichier non autorisé.', 'danger')
+                return render_template('add_etudiant.html', form=form)
+
+        db.session.add(Etudiant(NCE=nce,
                                 Nom=form.Nom.data.strip(),
                                 Prenom=form.Prenom.data.strip(),
                                 DateNais=form.DateNais.data,
                                 LieuNais=(form.LieuNais.data or '').strip() or None,
-                                CodClass=form.CodClass.data))
+                                CodClass=form.CodClass.data,
+                                photo=nom_photo))
         db.session.commit()
         maj_effectif(form.CodClass.data)
         flash('Étudiant ajouté.', 'success')
@@ -58,12 +101,55 @@ def add_etudiant():
     return render_template('add_etudiant.html', form=form)
 
 
+@app.route('/etudiant/<nce>/edit', methods=['GET', 'POST'])
+def edit_etudiant(nce):
+    etudiant = db.get_or_404(Etudiant, nce)
+    classes = Classe.query.order_by(Classe.CodClass).all()
+
+    form = EtudiantEditForm(obj=etudiant)
+    form.CodClass.choices = [(c.CodClass, f'{c.CodClass} - {c.NomClass}') for c in classes]
+
+    if form.validate_on_submit():
+        ancienne_classe = etudiant.CodClass
+        etudiant.Nom = form.Nom.data.strip()
+        etudiant.Prenom = form.Prenom.data.strip()
+        etudiant.DateNais = form.DateNais.data
+        etudiant.LieuNais = (form.LieuNais.data or '').strip() or None
+        etudiant.CodClass = form.CodClass.data
+
+        if fichier_envoye(form.photo):
+            try:
+                nouvelle = sauver_photo(form.photo.data, nce)
+            except UploadNotAllowed:
+                db.session.rollback()
+                flash('Type de fichier non autorisé.', 'danger')
+                return render_template('edit_etudiant.html', form=form, etudiant=etudiant)
+            if etudiant.photo and etudiant.photo != nouvelle:
+                supprimer_photo(etudiant.photo)   # on retire l'ancienne photo
+            etudiant.photo = nouvelle
+        # sinon : aucune nouvelle photo, on conserve l'ancienne
+
+        db.session.commit()
+        maj_effectif(ancienne_classe)
+        maj_effectif(etudiant.CodClass)
+        flash('Informations de l\'étudiant mises à jour.', 'success')
+        return redirect(url_for('index'))
+    return render_template('edit_etudiant.html', form=form, etudiant=etudiant)
+
+
 @app.route('/etudiant/<nce>/delete', methods=['POST'])
 def delete_etudiant(nce):
     etudiant = db.get_or_404(Etudiant, nce)
     cod_class = etudiant.CodClass
-    db.session.delete(etudiant)   # ses absences sont supprimées aussi
-    db.session.commit()
+    nom_photo = etudiant.photo
+    try:
+        db.session.delete(etudiant)  # ses absences sont supprimées aussi
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash("Impossible de supprimer l'étudiant : il est lié à d'autres enregistrements.", 'danger')
+        return redirect(url_for('index'))
+    supprimer_photo(nom_photo)
     maj_effectif(cod_class)
     flash('Étudiant supprimé (et ses absences).', 'success')
     return redirect(url_for('index'))
@@ -87,7 +173,7 @@ def list_classes():
 @app.route('/classe/<cod>/delete', methods=['POST'])
 def delete_classe(cod):
     classe = db.get_or_404(Classe, cod)
-    db.session.delete(classe)     # ses étudiants et leurs absences sont supprimés aussi
+    db.session.delete(classe)  # ses étudiants et leurs absences sont supprimés aussi
     db.session.commit()
     flash('Classe supprimée (avec ses étudiants et leurs absences).', 'success')
     return redirect(url_for('list_classes'))
@@ -111,7 +197,7 @@ def list_matieres():
 @app.route('/matiere/<cod>/delete', methods=['POST'])
 def delete_matiere(cod):
     matiere = db.get_or_404(Matiere, cod)
-    db.session.delete(matiere)    # ses absences sont supprimées aussi
+    db.session.delete(matiere)  # ses absences sont supprimées aussi
     db.session.commit()
     flash('Matière supprimée (et ses absences).', 'success')
     return redirect(url_for('list_matieres'))

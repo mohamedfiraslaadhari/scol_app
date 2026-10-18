@@ -1,10 +1,14 @@
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileAllowed
 from wtforms import (StringField, PasswordField, SelectField, DateField,
                      FloatField, TextAreaField, SubmitField)
 from wtforms.validators import (DataRequired, Email, Length, EqualTo,
                                 NumberRange, Optional, ValidationError)
 
 from models import User, Classe, Etudiant, Matiere
+
+# Types d'images autorisés pour la photo (TD3)
+EXTENSIONS_IMAGES = ['jpg', 'jpeg', 'png', 'gif']
 
 
 class UserForm(FlaskForm):
@@ -55,11 +59,30 @@ class EtudiantForm(FlaskForm):
     LieuNais = StringField('Lieu de naissance (optionnel)', validators=[
         Optional(), Length(max=50, message='Maximum 50 caractères')])
     CodClass = SelectField('Classe', validators=[DataRequired(message='Choisissez une classe')])
+    photo = FileField('Photo (optionnel : jpg, png, gif)', validators=[
+        FileAllowed(EXTENSIONS_IMAGES, 'Images uniquement (jpg, jpeg, png, gif)')])
     submit = SubmitField("Ajouter l'étudiant")
 
     def validate_NCE(self, field):
         if db_exists(Etudiant, field.data.strip()):
             raise ValidationError('Ce NCE existe déjà')
+
+
+class EtudiantEditForm(FlaskForm):
+    """Modification d'un étudiant : le NCE (clé primaire) ne change pas."""
+    Nom = StringField('Nom', validators=[
+        DataRequired(message='Champ obligatoire'),
+        Length(max=50, message='Maximum 50 caractères')])
+    Prenom = StringField('Prénom', validators=[
+        DataRequired(message='Champ obligatoire'),
+        Length(max=50, message='Maximum 50 caractères')])
+    DateNais = DateField('Date de naissance (optionnel)', validators=[Optional()])
+    LieuNais = StringField('Lieu de naissance (optionnel)', validators=[
+        Optional(), Length(max=50, message='Maximum 50 caractères')])
+    CodClass = SelectField('Classe', validators=[DataRequired(message='Choisissez une classe')])
+    photo = FileField('Nouvelle photo (laisser vide pour garder l\'actuelle)', validators=[
+        FileAllowed(EXTENSIONS_IMAGES, 'Images uniquement (jpg, jpeg, png, gif)')])
+    submit = SubmitField('Enregistrer')
 
 
 class MatiereForm(FlaskForm):
