@@ -32,6 +32,7 @@ class Etudiant(db.Model):
     Prenom = db.Column(db.String(50), nullable=False)
     DateNais = db.Column(db.Date)
     LieuNais = db.Column(db.String(50))
+    photo = db.Column(db.String(255))  # nom du fichier image (TD3)
     CodClass = db.Column(
         db.String(20),
         db.ForeignKey('classe.CodClass', onupdate='CASCADE', ondelete='CASCADE'),

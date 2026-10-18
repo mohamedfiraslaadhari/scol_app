@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Modifier un étudiant{% endblock %}
+{% block content %}
+<h1>Modifier l'étudiant {{ etudiant.NCE }}</h1>
+
+<p>
+    {% if etudiant.photo %}
+        <img class="photo-big" src="{{ url_for('static', filename='image/' + etudiant.photo) }}" alt="Photo de l'étudiant">
+    {% else %}
+        Aucune photo
+    {% endif %}
+</p>
+
+<form method="POST" enctype="multipart/form-data" novalidate>
+    {{ form.hidden_tag() }}
+    {% for field in [form.Nom, form.Prenom, form.DateNais, form.LieuNais, form.CodClass, form.photo] %}
+        <p>
+            {{ field.label }}<br>
+            {{ field() }}
+            {% for erreur in field.errors %}
+                <br><span class="danger">{{ erreur }}</span>
+            {% endfor %}
+        </p>
+    {% endfor %}
+    <p>{{ form.submit() }} <a href="{{ url_for('index') }}">Annuler</a></p>
+</form>
+{% endblock %}
