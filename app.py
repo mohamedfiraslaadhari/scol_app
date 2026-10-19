@@ -20,9 +20,12 @@ from models import User, Classe, Etudiant, Matiere, Absence
 from forms import (UserForm, ClasseForm, EtudiantForm, EtudiantEditForm,
                    MatiereForm, AbsenceForm, LoginForm, EXTENSIONS_IMAGES)
 from admin_views import init_admin
+from api import api as api_blueprint
+from dashboard import dashboard as dashboard_blueprint
 
 app = Flask(__name__)
 app.config.from_object(Config)
+app.json.ensure_ascii = False   # affiche les accents tels quels dans le JSON
 
 # ---------- Téléchargement des photos (TD3 : Flask-Uploads) ----------
 app.config['UPLOADED_PHOTOS_DEST'] = os.path.join(app.root_path, 'static', 'image')
@@ -71,6 +74,8 @@ def adresse_sure(cible):
 
 
 init_admin(app, csrf)  # interface /admin (Flask-Admin), réservée aux administrateurs
+app.register_blueprint(api_blueprint)        # API REST : /api/... (Mini-projet)
+app.register_blueprint(dashboard_blueprint)  # tableau de bord : /dashboard (Mini-projet)
 app.app_context().push()  # contexte d'application hors requête HTTP (TD, Partie 1 - point 2)
 
 

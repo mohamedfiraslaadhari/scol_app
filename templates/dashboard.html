@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% block title %}Tableau de bord{% endblock %}
+{% block content %}
+<style>
+    .cartes { display: flex; flex-wrap: wrap; gap: 12px; margin: 15px 0; }
+    .carte { flex: 1; min-width: 140px; border: 1px solid #ccc; border-radius: 8px;
+             padding: 12px; text-align: center; background: #f7f9fc; }
+    .carte .nombre { font-size: 28px; font-weight: bold; color: #337ab7; }
+    .panneaux { display: flex; flex-wrap: wrap; gap: 20px; }
+    .panneau { flex: 1; min-width: 320px; border: 1px solid #ccc; border-radius: 8px; padding: 12px; }
+    .ligne-barre { margin: 8px 0; }
+    .barre-fond { background: #e9ecef; border-radius: 4px; height: 18px; }
+    .barre { background: #337ab7; height: 18px; border-radius: 4px; min-width: 2px; }
+    .barre.orange { background: #f0ad4e; }
+    .badge-alerte { color: #fff; background: #d9534f; padding: 2px 7px; border-radius: 4px; }
+    .badge-ok { color: #fff; background: #5cb85c; padding: 2px 7px; border-radius: 4px; }
+</style>
+
+<h1>Tableau de bord</h1>
+
+<div class="cartes">
+    {% for titre, valeur in cartes %}
+    <div class="carte">
+        <div class="nombre">{{ valeur }}</div>
+        <div>{{ titre }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="panneaux">
+    <div class="panneau">
+        <h3>Étudiants par classe</h3>
+        {% for e in par_classe %}
+        <div class="ligne-barre">
+            {{ e.label }} : <strong>{{ e.texte }}</strong>
+            <div class="barre-fond"><div class="barre" style="width: {{ e.pct }}%"></div></div>
+        </div>
+        {% else %}
+        <p>Aucune classe.</p>
+        {% endfor %}
+    </div>
+
+    <div class="panneau">
+        <h3>Heures d'absence par matière</h3>
+        {% for e in par_matiere %}
+        <div class="ligne-barre">
+            {{ e.label }} : <strong>{{ e.texte }}</strong>
+            <div class="barre-fond"><div class="barre orange" style="width: {{ e.pct }}%"></div></div>
+        </div>
+        {% else %}
+        <p>Aucune absence enregistrée.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="panneaux" style="margin-top: 20px;">
+    <div class="panneau">
+        <h3>Étudiants les plus absents</h3>
+        <p>Alerte à partir de {{ seuil }} d'absence.</p>
+        {% if classement %}
+        <table border="1" cellpadding="6" cellspacing="0">
+            <tr><th>Étudiant</th><th>Absences</th><th>Total</th><th>Statut</th></tr>
+            {% for e in classement %}
+            <tr>
+                <td><a href="{{ url_for('absences_etudiant', nce=e.nce) }}">{{ e.nom }}</a></td>
+                <td>{{ e.absences }}</td>
+                <td>{{ e.total }}</td>
+                <td>
+                    {% if e.alerte %}<span class="badge-alerte">Alerte</span>
+                    {% else %}<span class="badge-ok">Normal</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>Aucune absence enregistrée.</p>
+        {% endif %}
+    </div>
+
+    <div class="panneau">
+        <h3>Dernières absences</h3>
+        {% if dernieres %}
+        <table border="1" cellpadding="6" cellspacing="0">
+            <tr><th>Date</th><th>Étudiant</th><th>Matière</th><th>Durée</th></tr>
+            {% for a in dernieres %}
+            <tr>
+                <td>{{ a.date }}</td><td>{{ a.etudiant }}</td>
+                <td>{{ a.matiere }}</td><td>{{ a.duree }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>Aucune absence enregistrée.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
