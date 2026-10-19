@@ -22,6 +22,7 @@
     <nav>
         {% if current_user.is_authenticated %}
             <a href="{{ url_for('index') }}">Étudiants</a>
+            <a href="{{ url_for('dashboard.tableau_de_bord') }}">Tableau de bord</a>
             {% if current_user.is_admin() %}
                 <a href="{{ url_for('list_classes') }}">Classes</a>
                 <a href="{{ url_for('list_matieres') }}">Matières</a>
