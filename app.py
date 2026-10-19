@@ -22,10 +22,13 @@ from forms import (UserForm, ClasseForm, EtudiantForm, EtudiantEditForm,
 from admin_views import init_admin
 from api import api as api_blueprint
 from dashboard import dashboard as dashboard_blueprint
+from securite import (init_securite, cle_connexion, secondes_restantes,
+                      enregistrer_echec, reinitialiser_echecs)
 
 app = Flask(__name__)
 app.config.from_object(Config)
 app.json.ensure_ascii = False   # affiche les accents tels quels dans le JSON
+init_securite(app)              # en-têtes HTTP et cookies de session sécurisés
 
 # ---------- Téléchargement des photos (TD3 : Flask-Uploads) ----------
 app.config['UPLOADED_PHOTOS_DEST'] = os.path.join(app.root_path, 'static', 'image')
@@ -113,16 +116,28 @@ def login():
         return redirect(url_for('index'))
     form = LoginForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(username=form.username.data.strip()).first()
+        identifiant = form.username.data.strip()
+        cle = cle_connexion(identifiant)
+
+        # Limitation des tentatives : 5 échecs en 5 minutes => blocage temporaire
+        attente = secondes_restantes(cle)
+        if attente:
+            minutes = (attente + 59) // 60
+            flash(f'Trop de tentatives échouées. Réessayez dans {minutes} minute(s).', 'danger')
+            return render_template('login.html', form=form), 429
+
+        user = User.query.filter_by(username=identifiant).first()
         try:
             mot_de_passe_ok = bool(user) and pbkdf2_sha256.verify(form.password.data, user.password)
         except ValueError:          # mot de passe stocké dans un format inconnu
             mot_de_passe_ok = False
         if mot_de_passe_ok:
+            reinitialiser_echecs(cle)
             login_user(user)        # Flask-Login mémorise l'utilisateur dans la session
             flash(f'Bienvenue {user.username} ! Vous êtes connecté.', 'success')
             cible = request.args.get('next')
             return redirect(cible if adresse_sure(cible) else url_for('index'))
+        enregistrer_echec(cle)
         flash('Identifiants incorrects.', 'danger')
     return render_template('login.html', form=form)
 
